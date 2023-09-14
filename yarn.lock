@@ -1743,6 +1743,11 @@
   resolved "https://registry.yarnpkg.com/@pixi/graphics/-/graphics-7.2.4.tgz#8500b604c36184736926393cb0ca9b9de9afef86"
   integrity sha512-3A2EumTjWJgXlDLOyuBrl9b6v1Za/E+/IjOGUIX843HH4NYaf1a2sfDfljx6r3oiDvy+VhuBFmgynRcV5IyA0Q==
 
+"@pixi/math-extras@^7.2.4":
+  version "7.2.4"
+  resolved "https://registry.yarnpkg.com/@pixi/math-extras/-/math-extras-7.2.4.tgz#eddd904425011440fb4a8806001a4595f4cd0d67"
+  integrity sha512-YBM4UBQbbGO01vcs4o8IiRBKXlvtjMMp0PS6kRNbe4kLhl66w5QUct4/nZT5MBUEWaIaA673Q+TWv/qTbOtYIQ==
+
 "@pixi/math@7.2.4":
   version "7.2.4"
   resolved "https://registry.yarnpkg.com/@pixi/math/-/math-7.2.4.tgz#219b64ca44348a1ee900ee074c51ee7e41615059"
