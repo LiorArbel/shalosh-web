@@ -30,48 +30,100 @@ BaseTexture.defaultOptions.scaleMode = SCALE_MODES.NEAREST;
 
 const app = new PIXI.Application<HTMLCanvasElement>({ height: 640, backgroundAlpha: 0 });
 
+type animationCommand = {
+  animFunction: (t: number) => void,
+  meta: { finished: boolean },
+};
+
 function initGame(grid: GameGrid) {
   app.stage.removeChildren();
   const gridSprite = createGrid(grid);
   app.stage.addChild(gridSprite);
   let movedChild: PIXI.Sprite | undefined;
   let isDragging = false;
+  let isAnimating = false;
+  let animationQueue: animationCommand[] = [];
   let startDragLocation: PIXI.Point | undefined;
   let startFruitPosition: PIXI.Point | undefined;
-  let pendingChange: {original: PIXI.Sprite, swapped: PIXI.Sprite, originalCell: PIXI.Point, swappedCell: PIXI.Point} | undefined;
+  let pendingChange: { original: PIXI.Sprite, swapped: PIXI.Sprite, originalCell: PIXI.Point, swappedCell: PIXI.Point } | undefined;
+
+  const debugText = new PIXI.Text("hello");
+  app.stage.addChild(debugText);
 
   app.stage.eventMode = 'static';
 
+  async function animateForTime(point: PIXI.Point, target: PIXI.Point, time: number) {
+    const promise = new Promise<void>((res, rej) => {
+      const meta = { finished: false };
+      const start = point.clone();
+      let passedTime = 0;
+      animationQueue.push({
+        animFunction: t => {
+          passedTime += t;
+          if (passedTime >= time) {
+            point.copyFrom(target);
+            meta.finished = true;
+            res();
+            return;
+          }
+          point.copyFrom(lerpPoint(start, target, Math.min(passedTime, time) / time));
+        },
+        meta,
+      })
+    });
+    return promise;
+  }
+
+  app.ticker.add(t => {
+    debugText.text = getExplosions(grid).map(i => i.x + ',' + i.y).join('|');
+    animationQueue.forEach(i => i.animFunction(t));
+    animationQueue = animationQueue.filter(i => !i.meta.finished);
+  });
+
   function commonPointerUp() {
+    if (animationQueue.length > 0) {
+      return;
+    }
     isDragging = false;
     if (movedChild) {
-      if(pendingChange){
-        const {originalCell, original, swapped, swappedCell} = pendingChange;
-        gridAt(originalCell).sprite = swapped;
-        const temp = gridAt(originalCell).type;
-        gridAt(originalCell).type = gridAt(swappedCell).type;
-        gridAt(swappedCell).sprite = original;
-        gridAt(swappedCell).type = temp;
-        pendingChange = undefined;
-      } else {
-        movedChild.position = startFruitPosition || movedChild.position;
-      }
-      movedChild.alpha = 1;
-      movedChild = undefined;
-      startFruitPosition = undefined;
+      movedChild.position = startFruitPosition || movedChild.position;
+      resetMoved();
     }
   }
+
+  function commitChange() {
+    if (!pendingChange) {
+      return;
+    }
+    const { originalCell, original, swapped, swappedCell } = pendingChange;
+    gridAt(originalCell).sprite = swapped;
+    const temp = gridAt(originalCell).type;
+    gridAt(originalCell).type = gridAt(swappedCell).type;
+    gridAt(swappedCell).sprite = original;
+    gridAt(swappedCell).type = temp;
+    pendingChange = undefined;
+  }
+
+  function resetMoved() {
+    if (!movedChild) {
+      return
+    }
+    movedChild.alpha = 1;
+    movedChild = undefined;
+    startFruitPosition = undefined;
+  }
+
   app.stage.on('pointerup', commonPointerUp);
   app.stage.on('pointerupoutside', commonPointerUp);
 
-  const t = new PIXI.Text("hello");
-  app.stage.addChild(t);
-
-  app.stage.on('pointermove', (e) => {
+  app.stage.on('pointermove', async (e) => {
     const mouseCell = globalToGridCell(e.global);
-    t.text = mouseCell.toString();
+    // t.text = mouseCell.toString();
+    if (animationQueue.length > 0) {
+      return;
+    }
     if (movedChild && startDragLocation && startFruitPosition) {
-      if(pendingChange){
+      if (pendingChange) {
         pendingChange.swapped.position = movedChild.position;
         pendingChange = undefined;
       }
@@ -85,17 +137,25 @@ function initGame(grid: GameGrid) {
         const target = startFruitPosition.add(diretion.multiplyScalar(movedChild.width));
         const targetCell = globalToGridCell(movedChild.parent.toGlobal(target));
         const currentCell = globalToGridCell(movedChild.parent.toGlobal(startFruitPosition));
-        if(canSwap(currentCell, targetCell)){
-          movedChild.position = target;
-          const swappedFruit = grid[targetCell.y][targetCell.x].sprite;
-          if(swappedFruit){
-            swappedFruit.position = startFruitPosition;
-            pendingChange = {
-              original: movedChild,
-              swapped: swappedFruit,
-              swappedCell: targetCell,
-              originalCell: currentCell,
+        if (canSwap(currentCell, targetCell)) {
+          const swappedFruit = gridAt(targetCell).sprite;
+          if (swappedFruit) {
+            animateForTime(movedChild.position, target, 10);
+            await animateForTime(swappedFruit.position, startFruitPosition, 10);
+            if (validMove(currentCell, targetCell)) {
+              pendingChange = {
+                original: movedChild,
+                swapped: swappedFruit,
+                swappedCell: targetCell,
+                originalCell: currentCell,
+              }
+              commitChange();
+            } else {
+              animateForTime(movedChild.position, startFruitPosition, 10);
+              await animateForTime(swappedFruit.position, target, 10);
+              pendingChange = undefined;
             }
+            resetMoved();
           }
         }
       } else {
@@ -104,10 +164,10 @@ function initGame(grid: GameGrid) {
     }
   });
 
-  function globalToGridCell(point: PIXI.Point){
+  function globalToGridCell(point: PIXI.Point) {
     return new PIXI.Point(
-      Math.floor((point.x - gridSprite.position.x) / CELL_WIDTH/gridSprite.scale.x),
-      Math.floor((point.y - gridSprite.position.y) / CELL_WIDTH/gridSprite.scale.y)
+      Math.floor((point.x - gridSprite.position.x) / CELL_WIDTH / gridSprite.scale.x),
+      Math.floor((point.y - gridSprite.position.y) / CELL_WIDTH / gridSprite.scale.y)
     );
   }
 
@@ -125,7 +185,7 @@ function initGame(grid: GameGrid) {
 
     const gridContainer = new PIXI.Container();
     gridContainer.position = { x: 100, y: 20 };
-    gridContainer.scale = { x: 1.5, y: 1.5 };
+    gridContainer.scale = { x: 2, y: 2 };
 
     gridContainer.addChild(g);
     grid.map((row, rowIndex) => row.map((cell, colIndex) => {
@@ -151,13 +211,65 @@ function initGame(grid: GameGrid) {
     return gridContainer;
   }
 
-  function canSwap(fruitA: PIXI.Point, fruitB: PIXI.Point){
+  function canSwap(fruitA: PIXI.Point, fruitB: PIXI.Point) {
     return grid[fruitA.x][fruitA.y] !== undefined && grid[fruitB.x][fruitB.y] !== undefined && fruitA.subtract(fruitB).magnitudeSquared() == 1;
   }
 
-  function gridAt(point: PIXI.Point){
+  function gridAt(point: PIXI.Point) {
     return grid[point.y][point.x];
   }
+
+  function validMove(from: PIXI.Point, to: PIXI.Point) {
+    return true;
+  }
+
+  function getExplosions(grid: GameGrid) {
+    if(grid.length < 1 || grid[0].length < 1){
+      return [];
+    }
+    const explosions:{x:number, y:number}[] = [];
+    for (let y = 0; y < grid.length; y++) {
+      let x = 0;
+      let series = 0;
+      let currentType = grid[y][x].type;
+      while (x < grid[y].length) {
+        if(grid[y][x].type == currentType){
+          series++;
+        } else {
+          if(series >= 3){
+            [...Array(series).keys()].forEach((unused,i) => {
+              explosions.push({x: x - 1 - i, y});
+            })
+          }
+          series = 0;
+        }
+        x++;
+      }
+    }
+    for (let x = 0; x < grid[0].length; x++) {
+      let y = 0;
+      let series = 0;
+      let currentType = grid[y][x].type;
+      while (y < grid.length) {
+        if(grid[y][x].type == currentType){
+          series++;
+        } else {
+          if(series >= 3){
+            [...Array(series).keys()].forEach((unused,i) => {
+              explosions.push({x: x, y: y - 1 - i});
+            })
+          }
+          series = 0;
+        }
+        y++;
+      }
+    }
+    return explosions;
+  }
+}
+
+function lerpPoint(point1: PIXI.Point, point2: PIXI.Point, rate: number) {
+  return point1.multiplyScalar(1 - rate).add(point2.multiplyScalar(rate));
 }
 
 function getDistanceSquared(point1: PIXI.Point, point2: PIXI.Point) {
