@@ -40,7 +40,6 @@ type animationCommand = {
 let existingTicker;
 
 function initGame(grid: GameGrid) {
-  console.log("recieved grid", grid);
   app.stage.removeChildren();
   const gridSprite = createGrid(grid);
   app.stage.addChild(gridSprite);
@@ -188,8 +187,8 @@ function initGame(grid: GameGrid) {
 
   function globalToGridCell(point: PIXI.Point) {
     return new PIXI.Point(
-      Math.floor((point.x - gridSprite.position.x) / CELL_WIDTH / gridSprite.scale.x),
-      Math.floor((point.y - gridSprite.position.y) / CELL_WIDTH / gridSprite.scale.y)
+      Math.floor((point.y - gridSprite.position.y) / CELL_WIDTH / gridSprite.scale.y),
+      Math.floor((point.x - gridSprite.position.x) / CELL_WIDTH / gridSprite.scale.x)
     );
   }
 
@@ -241,7 +240,7 @@ function initGame(grid: GameGrid) {
   }
 
   function gridAt(point: PIXI.Point) {
-    return grid[point.y][point.x];
+    return grid[point.x][point.y];
   }
 
   function validMove(from: PIXI.Point, to: PIXI.Point) {
@@ -252,9 +251,9 @@ function initGame(grid: GameGrid) {
     const shiftGrid: number[][] = range(grid.length).map(i => []);
     explosions.forEach(cell => {
       // range(cell.y + 1).reverse().forEach(i => shiftGrid[i][cell.x] = (shiftGrid[i][cell.x] || 0) + 1);
-      grid[cell.y][cell.x].sprite?.destroy();
-      grid[cell.y][cell.x].sprite = undefined;
-      grid[cell.y][cell.x].type = -1;
+      grid[cell.x][cell.y].sprite?.destroy();
+      grid[cell.x][cell.y].sprite = undefined;
+      grid[cell.x][cell.y].type = -1;
     });
     for (let i = grid.length - 1; i >= 0; i--) {
       let toAdd: { x: number, y: number }[] = [];
@@ -315,9 +314,9 @@ function initGame(grid: GameGrid) {
     for (let y = 0; y < grid.length; y++) {
       let x = 0;
       let series = 0;
-      let currentType = grid[y][x].type;
+      let currentType = grid[x][y].type;
       while (x < grid[y].length) {
-        if (grid[y][x].type == currentType) {
+        if (grid[x][y].type == currentType) {
           series++;
         } else {
           if (series >= 3) {
@@ -326,7 +325,7 @@ function initGame(grid: GameGrid) {
             })
           }
           series = 0;
-          currentType = grid[y][x].type;
+          currentType = grid[x][y].type;
         }
         x++;
       }
@@ -334,9 +333,9 @@ function initGame(grid: GameGrid) {
     for (let x = 0; x < grid[0].length; x++) {
       let y = 0;
       let series = 0;
-      let currentType = grid[y][x].type;
+      let currentType = grid[x][y].type;
       while (y < grid.length) {
-        if (grid[y][x].type == currentType) {
+        if (grid[x][y].type == currentType) {
           series++;
         } else {
           if (series >= 3) {
@@ -345,7 +344,7 @@ function initGame(grid: GameGrid) {
             })
           }
           series = 0;
-          currentType = grid[y][x].type;
+          currentType = grid[x][y].type;
         }
         y++;
       }
