@@ -22,6 +22,8 @@ const FRUITS_IMAGES = [
   strawberry
 ]
 
+const cellTypesAmount = FRUITS_IMAGES.length;
+
 const CELL_WIDTH = 40;
 const CELL_HEIGHT = 40;
 const MIN_DRAG_THRESH = 1000;
@@ -35,7 +37,10 @@ type animationCommand = {
   meta: { finished: boolean },
 };
 
+let existingTicker;
+
 function initGame(grid: GameGrid) {
+  console.log("recieved grid", grid);
   app.stage.removeChildren();
   const gridSprite = createGrid(grid);
   app.stage.addChild(gridSprite);
@@ -74,11 +79,27 @@ function initGame(grid: GameGrid) {
     return promise;
   }
 
-  app.ticker.add(t => {
+  if (existingTicker) {
+    app.ticker.remove(existingTicker);
+  }
+
+  existingTicker = ticker;
+  app.ticker.add(ticker);
+  console.log(app.ticker.count)
+
+  function ticker(t) {
     debugText.text = getExplosions(grid).map(i => i.x + ',' + i.y).join('|');
-    animationQueue.forEach(i => i.animFunction(t));
-    animationQueue = animationQueue.filter(i => !i.meta.finished);
-  });
+    if (animationQueue.length > 0) {
+      animationQueue.forEach(i => i.animFunction(t));
+      animationQueue = animationQueue.filter(i => !i.meta.finished);
+    } else {
+      // TODO: This goes into inifinte explosions.
+      // const explosions = getExplosions(grid);
+      // if(explosions.length > 0){
+      //   explode(grid, explosions);
+      // }
+    }
+  }
 
   function commonPointerUp() {
     if (animationQueue.length > 0) {
@@ -150,6 +171,7 @@ function initGame(grid: GameGrid) {
                 originalCell: currentCell,
               }
               commitChange();
+              explode(grid, getExplosions(grid));
             } else {
               animateForTime(movedChild.position, startFruitPosition, 10);
               await animateForTime(swappedFruit.position, target, 10);
@@ -184,31 +206,34 @@ function initGame(grid: GameGrid) {
     }
 
     const gridContainer = new PIXI.Container();
-    gridContainer.position = { x: 100, y: 20 };
+    gridContainer.position = { x: 100, y: 170 };
     gridContainer.scale = { x: 2, y: 2 };
 
     gridContainer.addChild(g);
     grid.map((row, rowIndex) => row.map((cell, colIndex) => {
-      const x = CELL_WIDTH * colIndex + 4;
-      const y = CELL_HEIGHT * rowIndex + 4;
-      const fruit = PIXI.Sprite.from(FRUITS_IMAGES[cell.type]);
-      fruit.eventMode = 'static';
-      fruit.height = CELL_HEIGHT;
-      fruit.width = CELL_WIDTH;
-      fruit.x = x + fruit.width / 3;
-      fruit.y = y + fruit.height / 3;
-      fruit.anchor.set(0.5, 0.5);
-      fruit.on('pointerdown', (e) => {
-        isDragging = true;
-        startDragLocation = e.global.clone();
-        movedChild = fruit;
-        startFruitPosition = fruit.position.clone();
-        fruit.alpha = 0.5;
-      });
+      const fruit = createFruitSprite(colIndex, rowIndex, cell.type);
       grid[rowIndex][colIndex].sprite = fruit;
       gridContainer.addChild(fruit);
     }))
     return gridContainer;
+  }
+
+  function createFruitSprite(x: number, y: number, type: number) {
+    const fruit = PIXI.Sprite.from(FRUITS_IMAGES[type]);
+    fruit.eventMode = 'static';
+    fruit.height = CELL_HEIGHT;
+    fruit.width = CELL_WIDTH;
+    fruit.x = CELL_WIDTH * x + 4 + fruit.width / 3;
+    fruit.y = CELL_HEIGHT * y + 4 + fruit.height / 3;
+    fruit.anchor.set(0.5, 0.5);
+    fruit.on('pointerdown', (e) => {
+      isDragging = true;
+      startDragLocation = e.global.clone();
+      movedChild = fruit;
+      startFruitPosition = fruit.position.clone();
+      fruit.alpha = 0.5;
+    });
+    return fruit;
   }
 
   function canSwap(fruitA: PIXI.Point, fruitB: PIXI.Point) {
@@ -223,25 +248,85 @@ function initGame(grid: GameGrid) {
     return true;
   }
 
+  async function explode(grid: GameGrid, explosions: { x: number, y: number }[]) {
+    const shiftGrid: number[][] = range(grid.length).map(i => []);
+    explosions.forEach(cell => {
+      // range(cell.y + 1).reverse().forEach(i => shiftGrid[i][cell.x] = (shiftGrid[i][cell.x] || 0) + 1);
+      grid[cell.y][cell.x].sprite?.destroy();
+      grid[cell.y][cell.x].sprite = undefined;
+      grid[cell.y][cell.x].type = -1;
+    });
+    for (let i = grid.length - 1; i >= 0; i--) {
+      let toAdd: { x: number, y: number }[] = [];
+      for (let j = grid[0].length - 1; j >= 0; j--) {
+        // const shift = (shiftGrid[i][j] || 0);
+        // const shifted = i - shift;
+        // if (shifted < 0) {
+        //   const type = random(0, cellTypesAmount - 1);
+        //   const newFruit = createFruitSprite(-10, -10, type);
+        //   gridSprite.addChild(newFruit);
+        //   grid[i][j] = { type, sprite: newFruit };
+        // } else if (shift > 0) {
+        //   grid[i][j] = grid[shifted][j];
+        // }
+        // const sprite = grid[i][j].sprite;
+        // if (sprite && shift > 0) {
+        //   animateForTime(sprite.position, sprite.position.add(new PIXI.Point(0, sprite.height * (shift))).clone(), 20);
+        // }
+        if (grid[j][i].type == -1) {
+          let k = -1;
+          let above: gridItem | undefined;
+          while (j + k >= 0 && !above) {
+            if (grid[j + k][i].type !== -1) {
+              above = grid[j + k][i];
+            } else {
+              k--;
+            }
+          }
+          if (above) {
+            grid[j][i] = above;
+            if (above.sprite) {
+              animateForTime(above.sprite.position, above.sprite.position.add(new PIXI.Point(0, above.sprite.height * k * -1)), 20);
+            }
+            grid[j + k][i].type = -1;
+          } else {
+            toAdd.push({ x: i, y: j });
+          }
+        }
+      }
+      toAdd.forEach(({ x, y }, index) => {
+        const type = random(0, cellTypesAmount - 1);
+        const sprite = createFruitSprite(x, -1 * (1 + index), type);
+        gridSprite.addChild(sprite);
+        animateForTime(sprite.position, sprite.position.add(new PIXI.Point(0, sprite.height * toAdd.length)), 20);
+        grid[y][x] = {
+          sprite: sprite,
+          type
+        };
+      })
+    }
+  }
+
   function getExplosions(grid: GameGrid) {
-    if(grid.length < 1 || grid[0].length < 1){
+    if (grid.length < 1 || grid[0].length < 1) {
       return [];
     }
-    const explosions:{x:number, y:number}[] = [];
+    const explosions: { x: number, y: number }[] = [];
     for (let y = 0; y < grid.length; y++) {
       let x = 0;
       let series = 0;
       let currentType = grid[y][x].type;
       while (x < grid[y].length) {
-        if(grid[y][x].type == currentType){
+        if (grid[y][x].type == currentType) {
           series++;
         } else {
-          if(series >= 3){
-            [...Array(series).keys()].forEach((unused,i) => {
-              explosions.push({x: x - 1 - i, y});
+          if (series >= 3) {
+            [...Array(series).keys()].forEach((unused, i) => {
+              explosions.push({ x: x - 1 - i, y });
             })
           }
           series = 0;
+          currentType = grid[y][x].type;
         }
         x++;
       }
@@ -251,20 +336,21 @@ function initGame(grid: GameGrid) {
       let series = 0;
       let currentType = grid[y][x].type;
       while (y < grid.length) {
-        if(grid[y][x].type == currentType){
+        if (grid[y][x].type == currentType) {
           series++;
         } else {
-          if(series >= 3){
-            [...Array(series).keys()].forEach((unused,i) => {
-              explosions.push({x: x, y: y - 1 - i});
+          if (series >= 3) {
+            [...Array(series).keys()].forEach((unused, i) => {
+              explosions.push({ x: x, y: y - 1 - i });
             })
           }
           series = 0;
+          currentType = grid[y][x].type;
         }
         y++;
       }
     }
-    return explosions;
+    return explosions.sort((a, b) => a.x - b.x || a.y - b.y);
   }
 }
 
@@ -294,10 +380,9 @@ function App() {
 export default App;
 
 export const MyComponent = () => {
-  const gridRows = 8;
-  const gridCols = 8;
+  const gridRows = 4;
+  const gridCols = 4;
   const startingTurns = 10;
-  const cellTypesAmount = 5;
   const [grid, setGrid] = useState<GameGrid>([[]]);
   const [turns, setTurns] = useState(0);
   const appContainer = useRef<HTMLDivElement>(null);
@@ -321,8 +406,10 @@ export const MyComponent = () => {
 
   function newGame() {
     setTurns(startingTurns);
+    const grid = range(gridRows).map(i => range(gridCols).map(i => ({ type: random(0, cellTypesAmount - 1) })));
+    console.log(grid);
     setGrid(
-      range(gridRows).map(i => range(gridCols).map(i => ({ type: random(0, cellTypesAmount - 1) })))
+      grid
     );
   }
 
