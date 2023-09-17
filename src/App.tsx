@@ -210,7 +210,7 @@ function initGame(grid: GameGrid) {
 
     gridContainer.addChild(g);
     grid.map((row, rowIndex) => row.map((cell, colIndex) => {
-      const fruit = createFruitSprite(colIndex, rowIndex, cell.type);
+      const fruit = createFruitSprite(rowIndex, colIndex, cell.type);
       grid[rowIndex][colIndex].sprite = fruit;
       gridContainer.addChild(fruit);
     }))
