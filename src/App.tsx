@@ -187,8 +187,8 @@ function initGame(grid: GameGrid) {
 
   function globalToGridCell(point: PIXI.Point) {
     return new PIXI.Point(
-      Math.floor((point.y - gridSprite.position.y) / CELL_WIDTH / gridSprite.scale.y),
-      Math.floor((point.x - gridSprite.position.x) / CELL_WIDTH / gridSprite.scale.x)
+      Math.floor((point.x - gridSprite.position.x) / CELL_WIDTH / gridSprite.scale.x),
+      Math.floor((point.y - gridSprite.position.y) / CELL_WIDTH / gridSprite.scale.y)
     );
   }
 
