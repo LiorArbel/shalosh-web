@@ -87,7 +87,7 @@ function initGame(grid: GameGrid) {
   console.log(app.ticker.count)
 
   function ticker(t) {
-    debugText.text = getExplosions(grid).map(i => i.x + ',' + i.y).join('|');
+    // debugText.text = getExplosions(grid).map((set, i) => i + ":" + [...set.values()].join(',')).join('|');
     if (animationQueue.length > 0) {
       animationQueue.forEach(i => i.animFunction(t));
       animationQueue = animationQueue.filter(i => !i.meta.finished);
@@ -137,8 +137,13 @@ function initGame(grid: GameGrid) {
   app.stage.on('pointerupoutside', commonPointerUp);
 
   app.stage.on('pointermove', async (e) => {
-    const mouseCell = globalToGridCell(e.global);
-    // t.text = mouseCell.toString();
+    // const mouseCell = globalToGridCell(e.global);
+    // const cellPos = gridCellToGlobal(mouseCell);
+    // debugText.text = 
+    //   Math.floor(e.global.x) + ',' + Math.floor(e.global.y) + ',\n' 
+    //   + mouseCell.toString() + '\n' 
+    //   + cellPos.toString()
+    //   + gridSprite.toLocal(cellPos);
     if (animationQueue.length > 0) {
       return;
     }
@@ -185,14 +190,8 @@ function initGame(grid: GameGrid) {
     }
   });
 
-  function globalToGridCell(point: PIXI.Point) {
-    return new PIXI.Point(
-      Math.floor((point.x - gridSprite.position.x) / CELL_WIDTH / gridSprite.scale.x),
-      Math.floor((point.y - gridSprite.position.y) / CELL_WIDTH / gridSprite.scale.y)
-    );
-  }
-
   function createGrid(grid: GameGrid) {
+    console.log("grid", grid);
     const rows = grid.length;
     const cols = grid[0].length;
 
@@ -222,9 +221,8 @@ function initGame(grid: GameGrid) {
     fruit.eventMode = 'static';
     fruit.height = CELL_HEIGHT;
     fruit.width = CELL_WIDTH;
-    fruit.x = CELL_WIDTH * x + 4 + fruit.width / 3;
-    fruit.y = CELL_HEIGHT * y + 4 + fruit.height / 3;
-    fruit.anchor.set(0.5, 0.5);
+    fruit.x = CELL_WIDTH * x;
+    fruit.y = CELL_HEIGHT * y;
     fruit.on('pointerdown', (e) => {
       isDragging = true;
       startDragLocation = e.global.clone();
@@ -233,6 +231,20 @@ function initGame(grid: GameGrid) {
       fruit.alpha = 0.5;
     });
     return fruit;
+  }
+
+  function gridCellToGlobal(cell: PIXI.Point){
+    return new PIXI.Point(
+      gridSprite.position.x + cell.x * CELL_WIDTH * gridSprite.scale.x,
+      gridSprite.position.y + cell.y * CELL_HEIGHT * gridSprite.scale.y
+    )
+  }
+
+  function globalToGridCell(point: PIXI.Point) {
+    return new PIXI.Point(
+      Math.floor((point.x - gridSprite.position.x) / CELL_WIDTH / gridSprite.scale.x),
+      Math.floor((point.y - gridSprite.position.y) / CELL_WIDTH / gridSprite.scale.y)
+    );
   }
 
   function canSwap(fruitA: PIXI.Point, fruitB: PIXI.Point) {
@@ -247,70 +259,42 @@ function initGame(grid: GameGrid) {
     return true;
   }
 
-  async function explode(grid: GameGrid, explosions: { x: number, y: number }[]) {
+  async function explode(grid: GameGrid, explosions: Explosions) {
     const shiftGrid: number[][] = range(grid.length).map(i => []);
-    explosions.forEach(cell => {
-      // range(cell.y + 1).reverse().forEach(i => shiftGrid[i][cell.x] = (shiftGrid[i][cell.x] || 0) + 1);
-      grid[cell.x][cell.y].sprite?.destroy();
-      grid[cell.x][cell.y].sprite = undefined;
-      grid[cell.x][cell.y].type = -1;
-    });
-    for (let i = grid.length - 1; i >= 0; i--) {
-      let toAdd: { x: number, y: number }[] = [];
-      for (let j = grid[0].length - 1; j >= 0; j--) {
-        // const shift = (shiftGrid[i][j] || 0);
-        // const shifted = i - shift;
-        // if (shifted < 0) {
-        //   const type = random(0, cellTypesAmount - 1);
-        //   const newFruit = createFruitSprite(-10, -10, type);
-        //   gridSprite.addChild(newFruit);
-        //   grid[i][j] = { type, sprite: newFruit };
-        // } else if (shift > 0) {
-        //   grid[i][j] = grid[shifted][j];
-        // }
-        // const sprite = grid[i][j].sprite;
-        // if (sprite && shift > 0) {
-        //   animateForTime(sprite.position, sprite.position.add(new PIXI.Point(0, sprite.height * (shift))).clone(), 20);
-        // }
-        if (grid[j][i].type == -1) {
-          let k = -1;
-          let above: gridItem | undefined;
-          while (j + k >= 0 && !above) {
-            if (grid[j + k][i].type !== -1) {
-              above = grid[j + k][i];
-            } else {
-              k--;
-            }
-          }
-          if (above) {
-            grid[j][i] = above;
-            if (above.sprite) {
-              animateForTime(above.sprite.position, above.sprite.position.add(new PIXI.Point(0, above.sprite.height * k * -1)), 20);
-            }
-            grid[j + k][i].type = -1;
-          } else {
-            toAdd.push({ x: i, y: j });
-          }
+    explosions.forEach((set, x) => {
+      if(!set){
+        return;
+      }
+      const valuesSorted = [...set.values()].sort().reverse();
+      valuesSorted.forEach(y => {
+        grid[x][y].sprite?.destroy();
+        grid[x].splice(y, 1);
+        console.log("after explosion", grid);
+      });
+      range(valuesSorted.length).forEach((i) => {
+        const type = random(0, cellTypesAmount - 1);
+        const sprite = createFruitSprite(x, -1 * (1 + i), type);
+        gridSprite.addChild(sprite);
+        grid[x].unshift({ type, sprite });
+      });
+      for(let i = 0; i<=valuesSorted[0]; i++){
+        const sprite = grid[x][i].sprite;
+        const type = grid[x][i].type;
+        if(sprite){
+          const diff = gridSprite.toLocal(gridCellToGlobal(new PIXI.Point(x, i))).subtract(sprite.position);
+          animateForTime(sprite.position, sprite.position.add(diff), 20);
         }
       }
-      toAdd.forEach(({ x, y }, index) => {
-        const type = random(0, cellTypesAmount - 1);
-        const sprite = createFruitSprite(x, -1 * (1 + index), type);
-        gridSprite.addChild(sprite);
-        animateForTime(sprite.position, sprite.position.add(new PIXI.Point(0, sprite.height * toAdd.length)), 20);
-        grid[y][x] = {
-          sprite: sprite,
-          type
-        };
-      })
-    }
+    });
   }
 
-  function getExplosions(grid: GameGrid) {
+  type Explosions = Set<number>[];
+
+  function getExplosions(grid: GameGrid): Explosions {
     if (grid.length < 1 || grid[0].length < 1) {
       return [];
     }
-    const explosions: { x: number, y: number }[] = [];
+    const explosions: Explosions = [];
     for (let y = 0; y < grid.length; y++) {
       let x = 0;
       let series = 0;
@@ -321,7 +305,11 @@ function initGame(grid: GameGrid) {
         } else {
           if (series >= 3) {
             [...Array(series).keys()].forEach((unused, i) => {
-              explosions.push({ x: x - 1 - i, y });
+              const column = x - 1 - i;
+              if (explosions[column] == undefined) {
+                explosions[column] = new Set();
+              }
+              explosions[column].add(y);
             })
           }
           series = 0;
@@ -340,7 +328,10 @@ function initGame(grid: GameGrid) {
         } else {
           if (series >= 3) {
             [...Array(series).keys()].forEach((unused, i) => {
-              explosions.push({ x: x, y: y - 1 - i });
+              if (explosions[x] == undefined) {
+                explosions[x] = new Set();
+              }
+              explosions[x].add(y - 1 - i);
             })
           }
           series = 0;
@@ -349,7 +340,7 @@ function initGame(grid: GameGrid) {
         y++;
       }
     }
-    return explosions.sort((a, b) => a.x - b.x || a.y - b.y);
+    return explosions;
   }
 }
 
