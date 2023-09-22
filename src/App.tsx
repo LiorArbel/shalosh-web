@@ -14,6 +14,7 @@ import mandarin from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/Mandarin
 import watermelon from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/WatermelonSLICE.png";
 import strawberry from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/StrawberrySLICE.png";
 import { GameGrid, Explosions, getExplosions, cloneGridShallow, swapPoints } from './gameLogic';
+import { explosionSheet } from './explosionAnimation';
 
 const FRUITS_IMAGES = [
   apple,
@@ -40,7 +41,8 @@ type animationCommand = {
 
 let existingTicker;
 
-function initGame(grid: GameGrid) {
+async function initGame(grid: GameGrid) {
+  await explosionSheet.parse();
   app.stage.removeChildren();
   const gridSprite = createGrid(grid);
   app.stage.addChild(gridSprite);
@@ -56,6 +58,34 @@ function initGame(grid: GameGrid) {
   // app.stage.addChild(debugText);
 
   app.stage.eventMode = 'static';
+
+  async function shake(sprite: PIXI.DisplayObject, time: number) {
+    const origin = sprite.position.clone();
+    const originalScale = sprite.scale.clone();
+    const magnitude = 15;
+    let totalTime = 0;
+    app.ticker.add(shakeIt);
+
+    let frame = 0;
+    let currentTarget: PIXI.Point;
+    function shakeIt(t: number) {
+      totalTime += t;
+      if (totalTime >= time) {
+        sprite.position = origin;
+        sprite.scale = originalScale
+        app.ticker.remove(shakeIt);
+      } else {
+        if (frame == 0) {
+          frame = 1;
+          currentTarget = origin.add((new PIXI.Point(Math.random() - 0.5, Math.random() - 0.5)).multiplyScalar(magnitude));
+          sprite.position = lerpPoint(origin, currentTarget, 0.5);
+        } else {
+          sprite.position = currentTarget;
+          frame = 0;
+        }
+      }
+    }
+  }
 
   async function animateForTime(point: PIXI.Point, target: PIXI.Point, time: number) {
     const promise = new Promise<void>((res, rej) => {
@@ -86,7 +116,7 @@ function initGame(grid: GameGrid) {
       const direction = target.subtract(start).normalize();
       animationQueue.push({
         animFunction: t => {
-          if (meta.finished || point.subtract(target).magnitudeSquared() < Math.pow(speed*t, 2)) {
+          if (meta.finished || point.subtract(target).magnitudeSquared() < Math.pow(speed * t, 2)) {
             point.copyFrom(target);
             meta.finished = true;
             res();
@@ -116,7 +146,7 @@ function initGame(grid: GameGrid) {
     } else {
       // TODO: This goes into inifinte explosions.
       const explosions = getExplosions(grid);
-      if(explosions.length > 0){
+      if (explosions.length > 0) {
         explode(grid, explosions);
       }
     }
@@ -255,7 +285,7 @@ function initGame(grid: GameGrid) {
     return fruit;
   }
 
-  function gridCellToGlobal(cell: PIXI.Point){
+  function gridCellToGlobal(cell: PIXI.Point) {
     return new PIXI.Point(
       gridSprite.position.x + cell.x * CELL_WIDTH * gridSprite.scale.x,
       gridSprite.position.y + cell.y * CELL_HEIGHT * gridSprite.scale.y
@@ -284,13 +314,31 @@ function initGame(grid: GameGrid) {
     return explosions.length > 0;
   }
 
+  function addExplosion(location: PIXI.Point){
+    const anim = new PIXI.AnimatedSprite(explosionSheet.animations['explosion' + random(1,3, false)]);
+    anim.position = location;
+    gridSprite.addChild(anim);
+    anim.anchor.set(0, 0);
+    anim.scale.set(0.6, 0.6);
+    anim.animationSpeed = 1 / 4;
+    anim.loop = false;
+    anim.onComplete = () => {
+      anim.destroy();
+    }
+    anim.play();
+  }
+
   async function explode(grid: GameGrid, explosions: Explosions) {
+    if (explosions.find(i => i && i.size > 0)) {
+      shake(gridSprite, 10);
+    }
     explosions.forEach((set, x) => {
-      if(!set){
+      if (!set) {
         return;
       }
-      const valuesSorted = [...set.values()].sort().reverse();
+      const valuesSorted = Array.from(set.values()).sort().reverse();
       valuesSorted.forEach(y => {
+        addExplosion(grid[x][y].sprite.position);
         grid[x][y].sprite?.destroy();
         grid[x].splice(y, 1);
         console.log("after explosion", grid);
@@ -301,9 +349,9 @@ function initGame(grid: GameGrid) {
         gridSprite.addChild(sprite);
         grid[x].unshift({ type, sprite });
       });
-      for(let i = 0; i<=valuesSorted[0]; i++){
+      for (let i = 0; i <= valuesSorted[0]; i++) {
         const sprite = grid[x][i].sprite;
-        if(sprite){
+        if (sprite) {
           const diff = gridSprite.toLocal(gridCellToGlobal(new PIXI.Point(x, i))).subtract(sprite.position);
           animateForSpeed(sprite.position, sprite.position.add(diff), 2);
         }
