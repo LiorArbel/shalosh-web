@@ -79,6 +79,27 @@ function initGame(grid: GameGrid) {
     return promise;
   }
 
+  async function animateForSpeed(point: PIXI.Point, target: PIXI.Point, speed: number) {
+    const promise = new Promise<void>((res, rej) => {
+      const meta = { finished: false };
+      const start = point.clone();
+      const direction = target.subtract(start).normalize();
+      animationQueue.push({
+        animFunction: t => {
+          if (meta.finished || point.subtract(target).magnitudeSquared() < Math.pow(speed*t, 2)) {
+            point.copyFrom(target);
+            meta.finished = true;
+            res();
+            return;
+          }
+          point.copyFrom(point.add(direction.multiplyScalar(speed * t)));
+        },
+        meta,
+      })
+    });
+    return promise;
+  }
+
   if (existingTicker) {
     app.ticker.remove(existingTicker);
   }
@@ -283,7 +304,7 @@ function initGame(grid: GameGrid) {
         const type = grid[x][i].type;
         if(sprite){
           const diff = gridSprite.toLocal(gridCellToGlobal(new PIXI.Point(x, i))).subtract(sprite.position);
-          animateForTime(sprite.position, sprite.position.add(diff), 20);
+          animateForSpeed(sprite.position, sprite.position.add(diff), 1.5);
         }
       }
     });
