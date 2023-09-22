@@ -62,20 +62,6 @@ export function getExplosions(grid: GameGrid): Explosions {
                 series++;
             }
             y++;
-            // if (grid[x][y].type == currentType) {
-            //     series++;
-            // } else {
-            //     if (series >= 3) {
-            //         [...Array(series).keys()].forEach((unused, i) => {
-            //             if (explosions[x] == undefined) {
-            //                 explosions[x] = new Set();
-            //             }
-            //             explosions[x].add(y - 1 - i);
-            //         })
-            //     }
-            //     series = 0;
-            //     currentType = grid[x][y].type;
-            // }
         }
     }
     return explosions;
