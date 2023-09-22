@@ -13,6 +13,7 @@ import kiwi from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/kiwiSLICE.pn
 import mandarin from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/MandarinSLICE.png";
 import watermelon from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/WatermelonSLICE.png";
 import strawberry from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/StrawberrySLICE.png";
+import { GameGrid, Explosions, getExplosions } from './gameLogic';
 
 const FRUITS_IMAGES = [
   apple,
@@ -93,10 +94,10 @@ function initGame(grid: GameGrid) {
       animationQueue = animationQueue.filter(i => !i.meta.finished);
     } else {
       // TODO: This goes into inifinte explosions.
-      // const explosions = getExplosions(grid);
-      // if(explosions.length > 0){
-      //   explode(grid, explosions);
-      // }
+      const explosions = getExplosions(grid);
+      if(explosions.length > 0){
+        explode(grid, explosions);
+      }
     }
   }
 
@@ -287,61 +288,6 @@ function initGame(grid: GameGrid) {
       }
     });
   }
-
-  type Explosions = Set<number>[];
-
-  function getExplosions(grid: GameGrid): Explosions {
-    if (grid.length < 1 || grid[0].length < 1) {
-      return [];
-    }
-    const explosions: Explosions = [];
-    for (let y = 0; y < grid.length; y++) {
-      let x = 0;
-      let series = 0;
-      let currentType = grid[x][y].type;
-      while (x < grid[y].length) {
-        if (grid[x][y].type == currentType) {
-          series++;
-        } else {
-          if (series >= 3) {
-            [...Array(series).keys()].forEach((unused, i) => {
-              const column = x - 1 - i;
-              if (explosions[column] == undefined) {
-                explosions[column] = new Set();
-              }
-              explosions[column].add(y);
-            })
-          }
-          series = 0;
-          currentType = grid[x][y].type;
-        }
-        x++;
-      }
-    }
-    for (let x = 0; x < grid[0].length; x++) {
-      let y = 0;
-      let series = 0;
-      let currentType = grid[x][y].type;
-      while (y < grid.length) {
-        if (grid[x][y].type == currentType) {
-          series++;
-        } else {
-          if (series >= 3) {
-            [...Array(series).keys()].forEach((unused, i) => {
-              if (explosions[x] == undefined) {
-                explosions[x] = new Set();
-              }
-              explosions[x].add(y - 1 - i);
-            })
-          }
-          series = 0;
-          currentType = grid[x][y].type;
-        }
-        y++;
-      }
-    }
-    return explosions;
-  }
 }
 
 function lerpPoint(point1: PIXI.Point, point2: PIXI.Point, rate: number) {
@@ -351,13 +297,6 @@ function lerpPoint(point1: PIXI.Point, point2: PIXI.Point, rate: number) {
 function getDistanceSquared(point1: PIXI.Point, point2: PIXI.Point) {
   return Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2);
 }
-
-type gridItem = {
-  type: number;
-  sprite?: PIXI.Sprite;
-}
-
-type GameGrid = gridItem[][];
 
 function App() {
   return (
