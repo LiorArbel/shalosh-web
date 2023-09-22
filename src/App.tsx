@@ -141,9 +141,11 @@ async function initGame(grid: GameGrid) {
   function ticker(t) {
     // debugText.text = getExplosions(grid).map((set, i) => i + ":" + [...set.values()].join(',')).join('|');
     if (animationQueue.length > 0) {
+      isAnimating = true;
       animationQueue.forEach(i => i.animFunction(t));
       animationQueue = animationQueue.filter(i => !i.meta.finished);
     } else {
+      isAnimating = false;
       // TODO: This goes into inifinte explosions.
       const explosions = getExplosions(grid);
       if (explosions.length > 0) {
@@ -196,7 +198,7 @@ async function initGame(grid: GameGrid) {
     //   + mouseCell.toString() + '\n' 
     //   + cellPos.toString()
     //   + gridSprite.toLocal(cellPos);
-    if (animationQueue.length > 0) {
+    if (isAnimating) {
       return;
     }
     if (movedChild && startDragLocation && startFruitPosition) {
@@ -276,6 +278,9 @@ async function initGame(grid: GameGrid) {
     fruit.x = CELL_WIDTH * x;
     fruit.y = CELL_HEIGHT * y;
     fruit.on('pointerdown', (e) => {
+      if(isAnimating){
+        return;
+      }
       isDragging = true;
       startDragLocation = e.global.clone();
       movedChild = fruit;
