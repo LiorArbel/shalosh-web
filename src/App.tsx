@@ -13,7 +13,7 @@ import kiwi from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/kiwiSLICE.pn
 import mandarin from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/MandarinSLICE.png";
 import watermelon from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/WatermelonSLICE.png";
 import strawberry from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/StrawberrySLICE.png";
-import { GameGrid, Explosions, getExplosions } from './gameLogic';
+import { GameGrid, Explosions, getExplosions, cloneGridShallow, swapPoints } from './gameLogic';
 
 const FRUITS_IMAGES = [
   apple,
@@ -53,7 +53,7 @@ function initGame(grid: GameGrid) {
   let pendingChange: { original: PIXI.Sprite, swapped: PIXI.Sprite, originalCell: PIXI.Point, swappedCell: PIXI.Point } | undefined;
 
   const debugText = new PIXI.Text("hello");
-  app.stage.addChild(debugText);
+  // app.stage.addChild(debugText);
 
   app.stage.eventMode = 'static';
 
@@ -189,7 +189,7 @@ function initGame(grid: GameGrid) {
           if (swappedFruit) {
             animateForTime(movedChild.position, target, 10);
             await animateForTime(swappedFruit.position, startFruitPosition, 10);
-            if (validMove(currentCell, targetCell)) {
+            if (validMove(grid, currentCell, targetCell)) {
               pendingChange = {
                 original: movedChild,
                 swapped: swappedFruit,
@@ -226,7 +226,7 @@ function initGame(grid: GameGrid) {
     }
 
     const gridContainer = new PIXI.Container();
-    gridContainer.position = { x: 100, y: 170 };
+    gridContainer.position = { x: 0, y: 0 };
     gridContainer.scale = { x: 2, y: 2 };
 
     gridContainer.addChild(g);
@@ -277,12 +277,14 @@ function initGame(grid: GameGrid) {
     return grid[point.x][point.y];
   }
 
-  function validMove(from: PIXI.Point, to: PIXI.Point) {
-    return true;
+  function validMove(grid: GameGrid, from: PIXI.Point, to: PIXI.Point) {
+    const cloned = cloneGridShallow(grid);
+    swapPoints(cloned, from, to);
+    const explosions = getExplosions(cloned);
+    return explosions.length > 0;
   }
 
   async function explode(grid: GameGrid, explosions: Explosions) {
-    const shiftGrid: number[][] = range(grid.length).map(i => []);
     explosions.forEach((set, x) => {
       if(!set){
         return;
@@ -301,10 +303,9 @@ function initGame(grid: GameGrid) {
       });
       for(let i = 0; i<=valuesSorted[0]; i++){
         const sprite = grid[x][i].sprite;
-        const type = grid[x][i].type;
         if(sprite){
           const diff = gridSprite.toLocal(gridCellToGlobal(new PIXI.Point(x, i))).subtract(sprite.position);
-          animateForSpeed(sprite.position, sprite.position.add(diff), 1.5);
+          animateForSpeed(sprite.position, sprite.position.add(diff), 2);
         }
       }
     });
@@ -330,8 +331,8 @@ function App() {
 export default App;
 
 export const MyComponent = () => {
-  const gridRows = 4;
-  const gridCols = 4;
+  const gridRows = 8;
+  const gridCols = 8;
   const startingTurns = 10;
   const [grid, setGrid] = useState<GameGrid>([[]]);
   const [turns, setTurns] = useState(0);

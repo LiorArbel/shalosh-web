@@ -66,3 +66,13 @@ export function getExplosions(grid: GameGrid): Explosions {
     }
     return explosions;
 }
+
+export function cloneGridShallow(grid: GameGrid){
+    return grid.map(i => i.map(j => ({type: j.type})));
+}
+
+export function swapPoints(grid: GameGrid, a: PIXI.Point, b:PIXI.Point){
+    const temp = grid[a.x][a.y];
+    grid[a.x][a.y] = grid[b.x][b.y];
+    grid[b.x][b.y] = temp;
+}
