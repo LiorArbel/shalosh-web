@@ -45,7 +45,7 @@ export function getExplosions(grid: GameGrid): Explosions {
         let series = 0;
         let currentType = grid[x][y].type;
         while (y < grid.length) {
-            if (y == grid[x].length - 1 || grid[x][y+1].type !== currentType) {
+            if (y == grid[x].length - 1 || grid[x][y + 1].type !== currentType) {
                 if (series >= 2) {
                     range(series + 1).forEach((i) => {
                         if (explosions[x] == undefined) {
@@ -67,12 +67,20 @@ export function getExplosions(grid: GameGrid): Explosions {
     return explosions;
 }
 
-export function cloneGridShallow(grid: GameGrid){
-    return grid.map(i => i.map(j => ({type: j.type})));
+export function cloneGridShallow(grid: GameGrid) {
+    return grid.map(i => i.map(j => ({ type: j.type })));
 }
 
-export function swapPoints(grid: GameGrid, a: PIXI.Point, b:PIXI.Point){
+export function swapPoints(grid: GameGrid, a: PIXI.Point, b: PIXI.Point) {
     const temp = grid[a.x][a.y];
     grid[a.x][a.y] = grid[b.x][b.y];
     grid[b.x][b.y] = temp;
+}
+
+export function lerpPoint(point1: PIXI.Point, point2: PIXI.Point, rate: number) {
+    return point1.multiplyScalar(1 - rate).add(point2.multiplyScalar(rate));
+}
+
+export function getDistanceSquared(point1: PIXI.Point, point2: PIXI.Point) {
+    return Math.pow(point1.x - point2.x, 2) + Math.pow(point1.y - point2.y, 2);
 }
