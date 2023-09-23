@@ -15,7 +15,7 @@ export function getExplosions(grid: GameGrid): Explosions {
         return [];
     }
     const explosions: Explosions = [];
-    for (let y = 0; y < grid.length; y++) {
+    for (let y = 0; y < grid[0].length; y++) {
         let x = 0;
         let series = 0;
         let currentType = grid[x][y].type;
@@ -40,11 +40,11 @@ export function getExplosions(grid: GameGrid): Explosions {
             x++;
         }
     }
-    for (let x = 0; x < grid[0].length; x++) {
+    for (let x = 0; x < grid.length; x++) {
         let y = 0;
         let series = 0;
         let currentType = grid[x][y].type;
-        while (y < grid.length) {
+        while (y < grid[x].length) {
             if (y == grid[x].length - 1 || grid[x][y + 1].type !== currentType) {
                 if (series >= 2) {
                     range(series + 1).forEach((i) => {

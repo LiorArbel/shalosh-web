@@ -153,6 +153,7 @@ async function initGame(grid: GameGrid) {
               commitChange();
               setTurns(turns$.getValue() - 1);
               explode(grid, getExplosions(grid));
+              // enlargeGrid();
             } else {
               animateForTime(animationQueue, movedChild.position, startFruitPosition, 10);
               await animateForTime(animationQueue, swappedFruit.position, target, 10);
@@ -268,7 +269,6 @@ async function initGame(grid: GameGrid) {
         createExplosionSprite(grid[x][y].sprite.position);
         grid[x][y].sprite?.destroy();
         grid[x].splice(y, 1);
-        console.log("after explosion", grid);
       });
       range(valuesSorted.length).forEach((i) => {
         const type = random(0, cellTypesAmount - 1);
@@ -276,14 +276,33 @@ async function initGame(grid: GameGrid) {
         gridSprite.addChild(sprite);
         grid[x].unshift({ type, sprite });
       });
-      for (let i = 0; i <= valuesSorted[0]; i++) {
-        const sprite = grid[x][i].sprite;
+    });
+    synchFruitPositions();
+  }
+
+  function synchFruitPositions() {
+    for (let x = 0; x < grid.length; x++) {
+      for (let y = 0; y < grid[x].length; y++) {
+        const sprite = grid[x][y].sprite;
         if (sprite) {
-          const diff = gridSprite.toLocal(gridCellToGlobal(new PIXI.Point(x, i))).subtract(sprite.position);
+          const diff = gridSprite.toLocal(gridCellToGlobal(new PIXI.Point(x, y))).subtract(sprite.position);
           animateForSpeed(animationQueue, sprite.position, sprite.position.add(diff), 2);
         }
       }
-    });
+    }
+  }
+
+  //TODO: bugged completely
+  function enlargeGrid(){
+    grid.unshift(range(grid[0].length).map(y => {
+      const type = random(0, cellTypesAmount - 1);
+      const sprite = createFruitSprite(0, -1 * (1 + y), type);
+      gridSprite.addChild(sprite);
+      return {
+        type,
+        sprite
+      }
+    }));
   }
 }
 
