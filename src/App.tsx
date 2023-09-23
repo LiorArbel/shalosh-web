@@ -8,6 +8,8 @@ import { settings, SCALE_MODES } from 'pixi.js';
 import '@pixi/math-extras';
 import React from 'react';
 import { create, random, range } from 'lodash';
+import { bind, Subscribe } from "@react-rxjs/core"
+import { createSignal } from "@react-rxjs/utils"
 import apple from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/AppleSLICE.png";
 import kiwi from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/kiwiSLICE.png";
 import mandarin from "./Helmt_32x32_fruit_asset_pack/SLICES/SLICES_LINE/MandarinSLICE.png";
@@ -37,6 +39,10 @@ const app = new PIXI.Application<HTMLCanvasElement>({ height: 640, backgroundAlp
 
 let existingTicker;
 
+const startingTurns = 10;
+const [turnsChange$, setTurns] = createSignal<number>();
+const [useTurns, turns$] = bind(turnsChange$, startingTurns);
+
 async function initGame(grid: GameGrid) {
   await explosionSheet.parse();
   app.stage.removeChildren();
@@ -64,7 +70,6 @@ async function initGame(grid: GameGrid) {
   console.log(app.ticker.count)
 
   function ticker(t) {
-    // debugText.text = getExplosions(grid).map((set, i) => i + ":" + [...set.values()].join(',')).join('|');
     if (animationQueue.length > 0) {
       isAnimating = true;
       animationQueue.forEach(i => i.animFunction(t));
@@ -115,13 +120,6 @@ async function initGame(grid: GameGrid) {
   app.stage.on('pointerupoutside', commonPointerUp);
 
   app.stage.on('pointermove', async (e) => {
-    // const mouseCell = globalToGridCell(e.global);
-    // const cellPos = gridCellToGlobal(mouseCell);
-    // debugText.text = 
-    //   Math.floor(e.global.x) + ',' + Math.floor(e.global.y) + ',\n' 
-    //   + mouseCell.toString() + '\n' 
-    //   + cellPos.toString()
-    //   + gridSprite.toLocal(cellPos);
     if (isAnimating) {
       return;
     }
@@ -153,6 +151,7 @@ async function initGame(grid: GameGrid) {
                 originalCell: currentCell,
               }
               commitChange();
+              setTurns(turns$.getValue() - 1);
               explode(grid, getExplosions(grid));
             } else {
               animateForTime(animationQueue, movedChild.position, startFruitPosition, 10);
@@ -201,7 +200,7 @@ async function initGame(grid: GameGrid) {
     fruit.x = CELL_WIDTH * x;
     fruit.y = CELL_HEIGHT * y;
     fruit.on('pointerdown', (e) => {
-      if(isAnimating){
+      if (isAnimating) {
         return;
       }
       isDragging = true;
@@ -242,8 +241,8 @@ async function initGame(grid: GameGrid) {
     return explosions.length > 0;
   }
 
-  function createExplosionSprite(location: PIXI.Point){
-    const anim = new PIXI.AnimatedSprite(explosionSheet.animations['explosion' + random(1,3, false)]);
+  function createExplosionSprite(location: PIXI.Point) {
+    const anim = new PIXI.AnimatedSprite(explosionSheet.animations['explosion' + random(1, 3, false)]);
     anim.position = location;
     gridSprite.addChild(anim);
     anim.anchor.set(0, 0);
@@ -301,9 +300,8 @@ export default App;
 export const MyComponent = () => {
   const gridRows = 8;
   const gridCols = 8;
-  const startingTurns = 10;
   const [grid, setGrid] = useState<GameGrid>([[]]);
-  const [turns, setTurns] = useState(0);
+  const turns = useTurns();
   const appContainer = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -334,6 +332,9 @@ export const MyComponent = () => {
 
   return <>
     <div ref={appContainer}></div>
-    <button onClick={newGame}>new game</button>
+    <div>
+      <button onClick={newGame}>new game</button>
+      You have {turns} turns left
+    </div>
   </>;
 };
