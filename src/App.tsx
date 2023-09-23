@@ -152,8 +152,8 @@ async function initGame(grid: GameGrid) {
               }
               commitChange();
               setTurns(turns$.getValue() - 1);
-              explode(grid, getExplosions(grid));
-              // enlargeGrid();
+              await explode(grid, getExplosions(grid));
+              enlargeGrid();
             } else {
               animateForTime(animationQueue, movedChild.position, startFruitPosition, 10);
               await animateForTime(animationQueue, swappedFruit.position, target, 10);
@@ -277,32 +277,39 @@ async function initGame(grid: GameGrid) {
         grid[x].unshift({ type, sprite });
       });
     });
-    synchFruitPositions();
+    await synchFruitPositions();
   }
 
-  function synchFruitPositions() {
+  async function synchFruitPositions() {
+    const promises = [];
     for (let x = 0; x < grid.length; x++) {
       for (let y = 0; y < grid[x].length; y++) {
         const sprite = grid[x][y].sprite;
         if (sprite) {
           const diff = gridSprite.toLocal(gridCellToGlobal(new PIXI.Point(x, y))).subtract(sprite.position);
-          animateForSpeed(animationQueue, sprite.position, sprite.position.add(diff), 2);
+          promises.push(animateForSpeed(animationQueue, sprite.position, sprite.position.add(diff), 2));
         }
       }
     }
+    await Promise.all(promises);
   }
 
-  //TODO: bugged completely
-  function enlargeGrid(){
-    grid.unshift(range(grid[0].length).map(y => {
-      const type = random(0, cellTypesAmount - 1);
-      const sprite = createFruitSprite(0, -1 * (1 + y), type);
-      gridSprite.addChild(sprite);
-      return {
-        type,
-        sprite
-      }
+  function addFruit(at:PIXI.Point): { type: number, sprite: PIXI.Sprite } {
+    const type = random(0, cellTypesAmount - 1);
+    const sprite = createFruitSprite(at.x, at.y, type);
+    gridSprite.addChild(sprite);
+    return { type, sprite };
+  }
+
+  function enlargeGrid() {
+    range(grid.length).forEach(col => {
+      grid[col].unshift(addFruit(new PIXI.Point(col, -1)));
+    });
+    grid.push(range(grid[0].length).reverse().map(y => {
+      return addFruit(new PIXI.Point(grid.length, -1 * (1 + y)));
     }));
+    gridSprite.scale = gridSprite.scale.multiplyScalar(0.9);
+    synchFruitPositions();
   }
 }
 
@@ -317,8 +324,8 @@ function App() {
 export default App;
 
 export const MyComponent = () => {
-  const gridRows = 8;
-  const gridCols = 8;
+  const gridRows = 3;
+  const gridCols = 3;
   const [grid, setGrid] = useState<GameGrid>([[]]);
   const turns = useTurns();
   const appContainer = useRef<HTMLDivElement>(null);
