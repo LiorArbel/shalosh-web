@@ -264,7 +264,7 @@ async function initGame(grid: GameGrid) {
     gridSprite.addChild(anim);
     anim.anchor.set(0, 0);
     anim.scale.set(0.6, 0.6);
-    anim.animationSpeed = 1 / 4;
+    anim.animationSpeed = 1 / 2;
     anim.loop = false;
     anim.onComplete = () => {
       resolver();
@@ -322,13 +322,13 @@ async function initGame(grid: GameGrid) {
   }
 
   async function enlargeGrid() {
+    gridSprite.scale = gridSprite.scale.multiplyScalar(gridSprite.width / (gridSprite.width + CELL_WIDTH * gridSprite.scale.x));
     range(grid.length).forEach(col => {
       grid[col].unshift(addFruit(new PIXI.Point(col, -1)));
     });
     grid.push(range(grid[0].length).reverse().map(y => {
       return addFruit(new PIXI.Point(grid.length, -1 * (1 + y)));
     }));
-    gridSprite.scale = gridSprite.scale.multiplyScalar(gridSprite.width / (gridSprite.width + CELL_WIDTH * gridSprite.scale.x));
     await synchFruitPositions();
   }
 }
