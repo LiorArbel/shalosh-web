@@ -7,6 +7,10 @@ export async function shake(app: PIXI.Application, sprite: PIXI.DisplayObject, t
     const magnitude = 15;
     let totalTime = 0;
     app.ticker.add(shakeIt);
+    let resolver;
+    const promise = new Promise((res, rej) => {
+        resolver = res;
+    });
 
     let frame = 0;
     let currentTarget: PIXI.Point;
@@ -16,6 +20,7 @@ export async function shake(app: PIXI.Application, sprite: PIXI.DisplayObject, t
             sprite.position = origin;
             sprite.scale = originalScale
             app.ticker.remove(shakeIt);
+            resolver();
         } else {
             if (frame == 0) {
                 frame = 1;
@@ -27,6 +32,8 @@ export async function shake(app: PIXI.Application, sprite: PIXI.DisplayObject, t
             }
         }
     }
+
+    return promise;
 }
 
 export type animationCommand = {

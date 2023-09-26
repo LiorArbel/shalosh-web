@@ -31,7 +31,7 @@ const cellTypesAmount = FRUITS_IMAGES.length;
 
 const CELL_WIDTH = 40;
 const CELL_HEIGHT = 40;
-const MIN_DRAG_THRESH = 1000;
+const MIN_DRAG_THRESH = CELL_WIDTH;
 
 BaseTexture.defaultOptions.scaleMode = SCALE_MODES.NEAREST;
 
@@ -57,7 +57,7 @@ async function initGame(grid: GameGrid) {
   let pendingChange: { original: PIXI.Sprite, swapped: PIXI.Sprite, originalCell: PIXI.Point, swappedCell: PIXI.Point } | undefined;
 
   const debugText = new PIXI.Text("hello");
-  // app.stage.addChild(debugText);
+  app.stage.addChild(debugText);
 
   app.stage.eventMode = 'static';
 
@@ -78,7 +78,7 @@ async function initGame(grid: GameGrid) {
       isAnimating = false;
       const explosions = getExplosions(grid);
       if (explosions.length > 0) {
-        explode(grid, explosions);
+        explode(explosions);
       }
     }
   }
@@ -88,7 +88,7 @@ async function initGame(grid: GameGrid) {
       return;
     }
     isDragging = false;
-    if (movedChild) {
+    if (movedChild && !movedChild.destroyed) {
       movedChild.position = startFruitPosition || movedChild.position;
       resetMoved();
     }
@@ -120,27 +120,36 @@ async function initGame(grid: GameGrid) {
   app.stage.on('pointerupoutside', commonPointerUp);
 
   app.stage.on('pointermove', async (e) => {
+    // const mouseCell = globalToGridCell(e.global);
+    // const cellPos = gridCellToGlobal(mouseCell);
+    // debugText.text = 
+    //   Math.floor(e.global.x) + ',' + Math.floor(e.global.y) + ',\n' 
+    //   + mouseCell.toString() + '\n' 
+    //   + cellPos.toString()
+    //   + gridSprite.toLocal(cellPos);
     if (isAnimating) {
       return;
     }
-    if (movedChild && startDragLocation && startFruitPosition) {
+    if (movedChild && startDragLocation && startFruitPosition && !movedChild.destroyed) {
       if (pendingChange) {
         pendingChange.swapped.position = movedChild.position;
         pendingChange = undefined;
       }
-      if (getDistanceSquared(startDragLocation, e.global) > MIN_DRAG_THRESH) {
+      if (startDragLocation.subtract(e.global).magnitude() > MIN_DRAG_THRESH * gridSprite.scale.x) {
         const diretion = new PIXI.Point(0, 0);
         if (Math.abs(startDragLocation.x - e.global.x) > Math.abs(startDragLocation.y - e.global.y)) {
           diretion.x = Math.sign(e.global.x - startDragLocation.x);
         } else {
           diretion.y = Math.sign(e.global.y - startDragLocation.y);
         }
-        const target = startFruitPosition.add(diretion.multiplyScalar(movedChild.width));
-        const targetCell = globalToGridCell(movedChild.parent.toGlobal(target));
-        const currentCell = globalToGridCell(movedChild.parent.toGlobal(startFruitPosition));
+        const currentCellX = grid.findIndex(row => row.find(i => i.sprite === movedChild));
+        const currentCellY = grid[currentCellX].findIndex(i => i.sprite === movedChild);
+        const currentCell = new PIXI.Point(currentCellX, currentCellY);
+        const targetCell = currentCell.add(diretion);
         if (canSwap(currentCell, targetCell)) {
           const swappedFruit = gridAt(targetCell).sprite;
           if (swappedFruit) {
+            const target = startFruitPosition.add(diretion.multiplyScalar(movedChild.width));
             animateForTime(animationQueue, movedChild.position, target, 10);
             await animateForTime(animationQueue, swappedFruit.position, startFruitPosition, 10);
             if (validMove(grid, currentCell, targetCell)) {
@@ -152,13 +161,14 @@ async function initGame(grid: GameGrid) {
               }
               commitChange();
               setTurns(turns$.getValue() - 1);
-              await explode(grid, getExplosions(grid));
-              enlargeGrid();
+              await explode(getExplosions(grid));
+              await enlargeGrid();
             } else {
               animateForTime(animationQueue, movedChild.position, startFruitPosition, 10);
               await animateForTime(animationQueue, swappedFruit.position, target, 10);
               pendingChange = undefined;
             }
+            console.log("finished pointermove");
             resetMoved();
           }
         }
@@ -181,7 +191,7 @@ async function initGame(grid: GameGrid) {
     }
 
     const gridContainer = new PIXI.Container();
-    gridContainer.position = { x: 0, y: 0 };
+    gridContainer.position = { x: 250, y: 50 };
     gridContainer.scale = { x: 2, y: 2 };
 
     gridContainer.addChild(g);
@@ -206,9 +216,9 @@ async function initGame(grid: GameGrid) {
       }
       isDragging = true;
       startDragLocation = e.global.clone();
-      movedChild = fruit;
-      startFruitPosition = fruit.position.clone();
-      fruit.alpha = 0.5;
+      movedChild = e.currentTarget as PIXI.Sprite;
+      startFruitPosition = movedChild.position.clone();
+      movedChild.alpha = 0.5;
     });
     return fruit;
   }
@@ -256,9 +266,10 @@ async function initGame(grid: GameGrid) {
     anim.play();
   }
 
-  async function explode(grid: GameGrid, explosions: Explosions) {
+  async function explode(explosions: Explosions) {
+    let shakePromise;
     if (explosions.find(i => i && i.size > 0)) {
-      shake(app, gridSprite, 10);
+      shakePromise = shake(app, gridSprite, 10);
     }
     explosions.forEach((set, x) => {
       if (!set) {
@@ -268,8 +279,8 @@ async function initGame(grid: GameGrid) {
       valuesSorted.forEach(y => {
         createExplosionSprite(grid[x][y].sprite.position);
         grid[x][y].sprite?.destroy();
-        grid[x].splice(y, 1);
       });
+      grid = grid.map(row => row.filter(cell => cell.sprite && !cell.sprite.destroyed));
       range(valuesSorted.length).forEach((i) => {
         const type = random(0, cellTypesAmount - 1);
         const sprite = createFruitSprite(x, -1 * (1 + i), type);
@@ -277,7 +288,7 @@ async function initGame(grid: GameGrid) {
         grid[x].unshift({ type, sprite });
       });
     });
-    await synchFruitPositions();
+    await Promise.all([synchFruitPositions(), shakePromise]);
   }
 
   async function synchFruitPositions() {
@@ -287,7 +298,7 @@ async function initGame(grid: GameGrid) {
         const sprite = grid[x][y].sprite;
         if (sprite) {
           const diff = gridSprite.toLocal(gridCellToGlobal(new PIXI.Point(x, y))).subtract(sprite.position);
-          promises.push(animateForSpeed(animationQueue, sprite.position, sprite.position.add(diff), 2));
+          promises.push(animateForSpeed(animationQueue, sprite.position, sprite.position.add(diff), 10));
         }
       }
     }
@@ -301,15 +312,15 @@ async function initGame(grid: GameGrid) {
     return { type, sprite };
   }
 
-  function enlargeGrid() {
+  async function enlargeGrid() {
     range(grid.length).forEach(col => {
       grid[col].unshift(addFruit(new PIXI.Point(col, -1)));
     });
     grid.push(range(grid[0].length).reverse().map(y => {
       return addFruit(new PIXI.Point(grid.length, -1 * (1 + y)));
     }));
-    gridSprite.scale = gridSprite.scale.multiplyScalar(0.9);
-    synchFruitPositions();
+    gridSprite.scale = gridSprite.scale.multiplyScalar(gridSprite.width/(gridSprite.width + CELL_WIDTH*gridSprite.scale.x));
+    await synchFruitPositions();
   }
 }
 
