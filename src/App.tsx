@@ -67,14 +67,13 @@ async function initGame(grid: GameGrid) {
 
   existingTicker = ticker;
   app.ticker.add(ticker);
-  console.log(app.ticker.count)
 
   function ticker(t) {
     if (animationQueue.length > 0) {
       isAnimating = true;
       animationQueue.forEach(i => i.animFunction(t));
       animationQueue = animationQueue.filter(i => !i.meta.finished);
-    } else {
+    } else if (!alreadyHandlingMove) {
       isAnimating = false;
       const explosions = getExplosions(grid);
       if (explosions.length > 0) {
@@ -116,9 +115,11 @@ async function initGame(grid: GameGrid) {
     startFruitPosition = undefined;
   }
 
+  app.stage.removeAllListeners();
   app.stage.on('pointerup', commonPointerUp);
   app.stage.on('pointerupoutside', commonPointerUp);
 
+  let alreadyHandlingMove = false;
   app.stage.on('pointermove', async (e) => {
     // const mouseCell = globalToGridCell(e.global);
     // const cellPos = gridCellToGlobal(mouseCell);
@@ -127,9 +128,10 @@ async function initGame(grid: GameGrid) {
     //   + mouseCell.toString() + '\n' 
     //   + cellPos.toString()
     //   + gridSprite.toLocal(cellPos);
-    if (isAnimating) {
+    if (isAnimating || alreadyHandlingMove) {
       return;
     }
+    alreadyHandlingMove = true;
     if (movedChild && startDragLocation && startFruitPosition && !movedChild.destroyed) {
       if (pendingChange) {
         pendingChange.swapped.position = movedChild.position;
@@ -150,8 +152,9 @@ async function initGame(grid: GameGrid) {
           const swappedFruit = gridAt(targetCell).sprite;
           if (swappedFruit) {
             const target = startFruitPosition.add(diretion.multiplyScalar(movedChild.width));
-            animateForTime(animationQueue, movedChild.position, target, 10);
-            await animateForTime(animationQueue, swappedFruit.position, startFruitPosition, 10);
+            await Promise.all([
+              animateForTime(animationQueue, swappedFruit.position, startFruitPosition, 10),
+              animateForTime(animationQueue, movedChild.position, target, 10)]);
             if (validMove(grid, currentCell, targetCell)) {
               pendingChange = {
                 original: movedChild,
@@ -176,6 +179,7 @@ async function initGame(grid: GameGrid) {
         movedChild.position = startFruitPosition;
       }
     }
+    alreadyHandlingMove = false;
   });
 
   function createGrid(grid: GameGrid) {
@@ -252,8 +256,10 @@ async function initGame(grid: GameGrid) {
     return explosions.length > 0;
   }
 
-  function createExplosionSprite(location: PIXI.Point) {
+  async function createExplosionSprite(location: PIXI.Point) {
     const anim = new PIXI.AnimatedSprite(explosionSheet.animations['explosion' + random(1, 3, false)]);
+    let resolver;
+    const promise = new Promise(res => resolver = res);
     anim.position = location;
     gridSprite.addChild(anim);
     anim.anchor.set(0, 0);
@@ -261,23 +267,22 @@ async function initGame(grid: GameGrid) {
     anim.animationSpeed = 1 / 4;
     anim.loop = false;
     anim.onComplete = () => {
+      resolver();
       anim.destroy();
     }
     anim.play();
+    return promise;
   }
 
   async function explode(explosions: Explosions) {
-    let shakePromise;
-    if (explosions.find(i => i && i.size > 0)) {
-      shakePromise = shake(app, gridSprite, 10);
-    }
+    const explosionAnimations = [];
     explosions.forEach((set, x) => {
       if (!set) {
         return;
       }
       const valuesSorted = Array.from(set.values()).sort().reverse();
       valuesSorted.forEach(y => {
-        createExplosionSprite(grid[x][y].sprite.position);
+        explosionAnimations.push(createExplosionSprite(grid[x][y].sprite.position));
         grid[x][y].sprite?.destroy();
       });
       grid = grid.map(row => row.filter(cell => cell.sprite && !cell.sprite.destroyed));
@@ -288,7 +293,11 @@ async function initGame(grid: GameGrid) {
         grid[x].unshift({ type, sprite });
       });
     });
-    await Promise.all([synchFruitPositions(), shakePromise]);
+    if (explosions.find(i => i && i.size > 0)) {
+      await shake(app, gridSprite, 10);
+      await Promise.all(explosionAnimations);
+    }
+    await synchFruitPositions();
   }
 
   async function synchFruitPositions() {
@@ -305,7 +314,7 @@ async function initGame(grid: GameGrid) {
     await Promise.all(promises);
   }
 
-  function addFruit(at:PIXI.Point): { type: number, sprite: PIXI.Sprite } {
+  function addFruit(at: PIXI.Point): { type: number, sprite: PIXI.Sprite } {
     const type = random(0, cellTypesAmount - 1);
     const sprite = createFruitSprite(at.x, at.y, type);
     gridSprite.addChild(sprite);
@@ -319,7 +328,7 @@ async function initGame(grid: GameGrid) {
     grid.push(range(grid[0].length).reverse().map(y => {
       return addFruit(new PIXI.Point(grid.length, -1 * (1 + y)));
     }));
-    gridSprite.scale = gridSprite.scale.multiplyScalar(gridSprite.width/(gridSprite.width + CELL_WIDTH*gridSprite.scale.x));
+    gridSprite.scale = gridSprite.scale.multiplyScalar(gridSprite.width / (gridSprite.width + CELL_WIDTH * gridSprite.scale.x));
     await synchFruitPositions();
   }
 }
@@ -335,8 +344,8 @@ function App() {
 export default App;
 
 export const MyComponent = () => {
-  const gridRows = 3;
-  const gridCols = 3;
+  const gridRows = 4;
+  const gridCols = 4;
   const [grid, setGrid] = useState<GameGrid>([[]]);
   const turns = useTurns();
   const appContainer = useRef<HTMLDivElement>(null);
