@@ -34,8 +34,9 @@ const CELL_HEIGHT = 40;
 const MIN_DRAG_THRESH = CELL_WIDTH;
 
 BaseTexture.defaultOptions.scaleMode = SCALE_MODES.NEAREST;
+PIXI.settings.RESOLUTION = window.devicePixelRatio;
 
-const app = new PIXI.Application<HTMLCanvasElement>({ height: 640, backgroundAlpha: 0 });
+const app = new PIXI.Application<HTMLCanvasElement>({ resizeTo: window, backgroundAlpha: 0, autoDensity:true });
 
 let existingTicker;
 
@@ -56,8 +57,8 @@ async function initGame(grid: GameGrid) {
   let startFruitPosition: PIXI.Point | undefined;
   let pendingChange: { original: PIXI.Sprite, swapped: PIXI.Sprite, originalCell: PIXI.Point, swappedCell: PIXI.Point } | undefined;
 
-  const debugText = new PIXI.Text("hello");
-  app.stage.addChild(debugText);
+  // const debugText = new PIXI.Text("hello");
+  // app.stage.addChild(debugText);
 
   app.stage.eventMode = 'static';
 
@@ -195,8 +196,6 @@ async function initGame(grid: GameGrid) {
     }
 
     const gridContainer = new PIXI.Container();
-    gridContainer.position = { x: 250, y: 50 };
-    gridContainer.scale = { x: 2, y: 2 };
 
     gridContainer.addChild(g);
     grid.map((row, rowIndex) => row.map((cell, colIndex) => {
@@ -204,6 +203,8 @@ async function initGame(grid: GameGrid) {
       grid[rowIndex][colIndex].sprite = fruit;
       gridContainer.addChild(fruit);
     }))
+    gridContainer.scale = { x: 2, y: 2 };
+    gridContainer.position = { x: Math.max(0, (app.screen.width - gridContainer.width) / 2), y: 50 };
     return gridContainer;
   }
 
@@ -378,7 +379,7 @@ export const MyComponent = () => {
   }
 
   return <>
-    <div ref={appContainer}></div>
+    <div style={{position: "absolute"}} ref={appContainer}></div>
     <div>
       <button onClick={newGame}>new game</button>
       You have {turns} turns left
