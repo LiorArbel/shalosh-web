@@ -379,7 +379,7 @@ export const MyComponent = () => {
   }
 
   return <>
-    <div style={{position: "absolute"}} ref={appContainer}></div>
+    <div style={{position: "absolute", zIndex: -100}} ref={appContainer}></div>
     <div>
       <button onClick={newGame}>new game</button>
       You have {turns} turns left
