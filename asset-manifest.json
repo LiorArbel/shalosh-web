@@ -1,16 +1,16 @@
 {
   "files": {
     "main.css": "/shalosh-web/static/css/main.acdcc288.css",
-    "main.js": "/shalosh-web/static/js/main.a1a2da1a.js",
+    "main.js": "/shalosh-web/static/js/main.33cd84c1.js",
     "static/js/787.b26cfa05.chunk.js": "/shalosh-web/static/js/787.b26cfa05.chunk.js",
     "static/media/explosions.png": "/shalosh-web/static/media/explosions.b7810bcbdc962c69842a.png",
     "index.html": "/shalosh-web/index.html",
     "main.acdcc288.css.map": "/shalosh-web/static/css/main.acdcc288.css.map",
-    "main.a1a2da1a.js.map": "/shalosh-web/static/js/main.a1a2da1a.js.map",
+    "main.33cd84c1.js.map": "/shalosh-web/static/js/main.33cd84c1.js.map",
     "787.b26cfa05.chunk.js.map": "/shalosh-web/static/js/787.b26cfa05.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.acdcc288.css",
-    "static/js/main.a1a2da1a.js"
+    "static/js/main.33cd84c1.js"
   ]
 }
