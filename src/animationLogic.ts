@@ -4,7 +4,7 @@ import { lerpPoint } from './gameLogic';
 export async function shake(app: PIXI.Application, sprite: PIXI.DisplayObject, time: number) {
     const origin = sprite.position.clone();
     const originalScale = sprite.scale.clone();
-    const magnitude = 15;
+    const magnitude = 8;
     let totalTime = 0;
     app.ticker.add(shakeIt);
     let resolver;

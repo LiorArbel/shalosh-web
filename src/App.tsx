@@ -275,16 +275,18 @@ async function initGame(grid: GameGrid) {
   }
 
   async function explode(explosions: Explosions) {
+    alreadyHandlingMove = true;
     const explosionAnimations = [];
-    explosions.forEach((set, x) => {
+    for(const [x, set] of explosions.entries()){
       if (!set) {
-        return;
+        continue;
       }
       const valuesSorted = Array.from(set.values()).sort().reverse();
-      valuesSorted.forEach(y => {
+      for(const y of valuesSorted.values()){
         explosionAnimations.push(createExplosionSprite(grid[x][y].sprite.position));
+        await shake(app, gridSprite, 10)
         grid[x][y].sprite?.destroy();
-      });
+      }
       grid = grid.map(row => row.filter(cell => cell.sprite && !cell.sprite.destroyed));
       range(valuesSorted.length).forEach((i) => {
         const type = random(0, cellTypesAmount - 1);
@@ -292,12 +294,11 @@ async function initGame(grid: GameGrid) {
         gridSprite.addChild(sprite);
         grid[x].unshift({ type, sprite });
       });
-    });
-    if (explosions.find(i => i && i.size > 0)) {
-      await shake(app, gridSprite, 10);
-      await Promise.all(explosionAnimations);
     }
+    
+    await Promise.all(explosionAnimations);
     await synchFruitPositions();
+    alreadyHandlingMove = false;
   }
 
   async function synchFruitPositions() {
