@@ -205,6 +205,10 @@ async function initGame(grid: GameGrid) {
     }))
     gridContainer.scale = { x: 2, y: 2 };
     gridContainer.position = { x: Math.max(0, (app.screen.width - gridContainer.width) / 2), y: 50 };
+    const mask = new PIXI.Graphics();
+    mask.beginFill();
+    mask.drawRect(gridContainer.position.x, gridContainer.position.y, gridContainer.width, gridContainer.height);
+    gridContainer.mask = mask;
     return gridContainer;
   }
 
