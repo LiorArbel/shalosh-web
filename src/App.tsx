@@ -134,10 +134,6 @@ async function initGame(grid: GameGrid) {
     }
     alreadyHandlingMove = true;
     if (movedChild && startDragLocation && startFruitPosition && !movedChild.destroyed) {
-      if (pendingChange) {
-        pendingChange.swapped.position = movedChild.position;
-        pendingChange = undefined;
-      }
       if (startDragLocation.subtract(e.global).magnitude() > MIN_DRAG_THRESH * gridSprite.scale.x) {
         const diretion = new PIXI.Point(0, 0);
         if (Math.abs(startDragLocation.x - e.global.x) > Math.abs(startDragLocation.y - e.global.y)) {
@@ -165,7 +161,7 @@ async function initGame(grid: GameGrid) {
               }
               commitChange();
               setTurns(turns$.getValue() - 1);
-              await explode(getExplosions(grid));
+              resetMoved()
               await enlargeGrid();
             } else {
               animateForTime(animationQueue, movedChild.position, startFruitPosition, 10);
